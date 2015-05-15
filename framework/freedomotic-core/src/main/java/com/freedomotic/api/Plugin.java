@@ -31,7 +31,7 @@ import com.freedomotic.events.PluginHasChanged;
 import com.freedomotic.events.PluginHasChanged.PluginActions;
 import com.freedomotic.model.ds.Config;
 import com.freedomotic.util.EqualsUtil;
-import com.freedomotic.util.Info;
+import com.freedomotic.settings.Info;
 import com.google.inject.Inject;
 import java.io.File;
 import java.io.IOException;
@@ -188,8 +188,6 @@ public class Plugin implements Client, BusConsumer {
     public void notifyCriticalError(String message) {
         //Log the error on console/logfiles
         LOG.warning(message);
-        //change plugin description
-        setDescription(message);
         //write something on the GUI
         MessageEvent callout = new MessageEvent(this, message);
         callout.setType("callout"); //display as callout on frontends
@@ -198,6 +196,8 @@ public class Plugin implements Client, BusConsumer {
         busService.send(callout);
         //stop this plugin
         stop();
+        //override plugin description
+        setDescription(message);
         //plugin is now set as STOPPED, but should be marked as FAILED
         currentPluginStatus = PluginStatus.FAILED;
     }
@@ -517,9 +517,9 @@ public class Plugin implements Client, BusConsumer {
 
     @Override
     public void destroy() {
-        stop();
         // Destroy the messaging channel
-        listener.unsubscribe();
+        listener.destroy();
+        stop();
     }
 
 }

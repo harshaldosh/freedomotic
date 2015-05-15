@@ -30,9 +30,8 @@ import com.freedomotic.things.ThingRepository;
 import com.freedomotic.persistence.FreedomXStream;
 import com.freedomotic.persistence.DataUpgradeService;
 import com.freedomotic.persistence.XmlPreprocessor;
-import com.freedomotic.util.Info;
+import com.freedomotic.settings.Info;
 import com.freedomotic.util.SerialClone;
-import com.freedomotic.util.UidGenerator;
 import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.XStreamException;
 import java.io.File;
@@ -49,10 +48,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.inject.Inject;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -64,6 +63,8 @@ class ThingRepositoryImpl implements ThingRepository {
 
     public static final boolean MAKE_NOT_UNIQUE = false;
     private static final Map<String, EnvObjectLogic> objectList = new HashMap<>();
+    private static final Logger LOG = LoggerFactory.getLogger(ThingRepositoryImpl.class.getName()); 
+    // Dependencies
     private final ThingFactory thingsFactory;
     private final DataUpgradeService dataUpgradeService;
 
@@ -73,16 +74,14 @@ class ThingRepositoryImpl implements ThingRepository {
      * @param environmentRepository
      */
     @Inject
-    public ThingRepositoryImpl(
-            ThingFactory thingsFactory, 
-            DataUpgradeService dataUpgradeService) {
+    public ThingRepositoryImpl(ThingFactory thingsFactory, DataUpgradeService dataUpgradeService) {
         this.thingsFactory = thingsFactory;
         this.dataUpgradeService = dataUpgradeService;
     }
 
     @Deprecated
     @RequiresPermissions("objects:read")
-    public static Collection<EnvObjectLogic> getObjectList() {
+    private static Collection<EnvObjectLogic> getObjectList() {
         return objectList.values();
     }
 
@@ -92,7 +91,7 @@ class ThingRepositoryImpl implements ThingRepository {
      * @throws RepositoryException
      */
     @RequiresPermissions("objects:save")
-    public static void saveObjects(File folder) throws RepositoryException {
+    private static void saveObjects(File folder) throws RepositoryException {
         if (objectList.isEmpty()) {
             throw new RepositoryException("There are no object to persist, " + folder.getAbsolutePath()
                     + " will not be altered.");
@@ -123,8 +122,7 @@ class ThingRepositoryImpl implements ThingRepository {
         }
     }
 
-    private static void deleteObjectFiles(File folder)
-            throws RepositoryException {
+    private static void deleteObjectFiles(File folder) throws RepositoryException {
         if ((folder == null) || !folder.isDirectory()) {
             throw new IllegalArgumentException("Unable to delete objects files in a null or not valid folder");
         }
@@ -161,7 +159,7 @@ class ThingRepositoryImpl implements ThingRepository {
      */
     @Deprecated
     @RequiresPermissions("objects:read")
-    public static Iterator<EnvObjectLogic> iterator() {
+    private static Iterator<EnvObjectLogic> iterator() {
         return objectList.values().iterator();
     }
 
@@ -172,7 +170,7 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static EnvObjectLogic getObjectByName(String name) {
+    private static EnvObjectLogic getObjectByName(String name) {
         for (Iterator<EnvObjectLogic> it = ThingRepositoryImpl.iterator(); it.hasNext();) {
             EnvObjectLogic object = it.next();
             if (object.getPojo().getName().equalsIgnoreCase(name) //&& auth.isPermitted("objects:read:" + object.getPojo().getUUID())
@@ -190,7 +188,7 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static ArrayList<EnvObjectLogic> getObjectByTags(String tags) {
+    private static ArrayList<EnvObjectLogic> getObjectByTags(String tags) {
         ArrayList<EnvObjectLogic> results = new ArrayList<EnvObjectLogic>();
         // split tags string
         String[] tagList = tags.split(",");
@@ -221,7 +219,7 @@ class ThingRepositoryImpl implements ThingRepository {
      */
     @Deprecated
     @RequiresPermissions("objects:read")
-    public static EnvObjectLogic getObjectByUUID(String uuid) {
+    private static EnvObjectLogic getObjectByUUID(String uuid) {
         for (Iterator<EnvObjectLogic> it = iterator(); it.hasNext();) {
             EnvObjectLogic object = it.next();
             if (object.getPojo().getUUID().equalsIgnoreCase(uuid)) {
@@ -240,11 +238,9 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static ArrayList<EnvObjectLogic> getObjectByAddress(String protocol, String address) {
+    private static ArrayList<EnvObjectLogic> getObjectByAddress(String protocol, String address) {
         if ((protocol == null)
                 || (address == null)
-                || protocol.trim().equalsIgnoreCase("unknown")
-                || address.trim().equalsIgnoreCase("unknown")
                 || protocol.isEmpty()
                 || address.isEmpty()) {
             throw new IllegalArgumentException();
@@ -261,7 +257,7 @@ class ThingRepositoryImpl implements ThingRepository {
         }
 
         if (list.isEmpty()) {
-            LOG.warning("An object with protocol '" + protocol + "' and address '"
+            LOG.warn("An object with protocol '" + protocol + "' and address '"
                     + address + "' doesn't exist");
         }
 
@@ -275,7 +271,7 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static ArrayList<EnvObjectLogic> getObjectByProtocol(String protocol) {
+    private static ArrayList<EnvObjectLogic> getObjectByProtocol(String protocol) {
         ArrayList<EnvObjectLogic> list = new ArrayList<EnvObjectLogic>();
         for (Iterator<EnvObjectLogic> it = ThingRepositoryImpl.iterator(); it.hasNext();) {
             EnvObjectLogic object = it.next();
@@ -295,7 +291,7 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static ArrayList<EnvObjectLogic> getObjectByEnvironment(String uuid) {
+    private static ArrayList<EnvObjectLogic> getObjectByEnvironment(String uuid) {
         ArrayList<EnvObjectLogic> list = new ArrayList<EnvObjectLogic>();
         for (Iterator<EnvObjectLogic> it = ThingRepositoryImpl.iterator(); it.hasNext();) {
             EnvObjectLogic object = it.next();
@@ -313,8 +309,28 @@ class ThingRepositoryImpl implements ThingRepository {
      * @return
      */
     @RequiresPermissions("objects:read")
-    public static int size() {
+    private static int size() {
         return objectList.size();
+    }
+
+    /**
+     *
+     * @param input
+     */
+    @Deprecated
+    @RequiresPermissions("objects:delete")
+    private static void remove(EnvObjectLogic input) {
+        objectList.remove(input.getPojo().getUUID());
+        input.setChanged(true); //force repainting on frontends clients
+        input.destroy(); //free memory
+    }
+
+    private static List<String> getObjectsNames() {
+        List<String> list = new ArrayList<String>();
+        for (EnvObjectLogic obj : objectList.values()) {
+            list.add(obj.getPojo().getName());
+        }
+        return list;
     }
 
     /**
@@ -331,7 +347,7 @@ class ThingRepositoryImpl implements ThingRepository {
      */
     @Deprecated
     @RequiresPermissions("objects:create")
-    public EnvObjectLogic add(final EnvObjectLogic obj, final boolean MAKE_UNIQUE) {
+    private EnvObjectLogic add(final EnvObjectLogic obj, final boolean MAKE_UNIQUE) {
         if ((obj == null)) {
             throw new IllegalArgumentException("Cannot add a null object to the environment");
         }
@@ -349,7 +365,7 @@ class ThingRepositoryImpl implements ThingRepository {
         if (MAKE_UNIQUE) {
             //defensive copy to not affect the passed object with the changes
             EnvObject pojoCopy = SerialClone.clone(obj.getPojo());
-            pojoCopy.setName(obj.getPojo().getName() + "-" + UidGenerator.getNextStringUid());
+            pojoCopy.setName(getNextInOrder(obj.getPojo().getName()));
             pojoCopy.setProtocol(obj.getPojo().getProtocol());
             pojoCopy.setPhisicalAddress("unknown");
             for (Representation rep : pojoCopy.getRepresentations()) {
@@ -361,7 +377,7 @@ class ThingRepositoryImpl implements ThingRepository {
             try {
                 envObjectLogic = thingsFactory.create(pojoCopy);
             } catch (RepositoryException ex) {
-                LOG.warning(ex.getMessage());
+                LOG.warn(ex.getMessage());
             }
         }
 
@@ -370,9 +386,9 @@ class ThingRepositoryImpl implements ThingRepository {
         if (!objectList.containsValue(envObjectLogic)) {
             objectList.put(envObjectLogic.getPojo().getUUID(), envObjectLogic);
             try {
-                envObjectLogic.setChanged(true);
+                envObjectLogic.setChanged(SynchAction.CREATED);
             } catch (Exception e) {
-                LOG.log(Level.WARNING, "Object was created, but cannot set it as Changed", e);
+                LOG.warn("Thing was created, but cannot set it as Changed", e);
             }
         } else {
             throw new RuntimeException("Cannot add the same object more than one time");
@@ -380,17 +396,16 @@ class ThingRepositoryImpl implements ThingRepository {
 
         return envObjectLogic;
     }
-
-    /**
-     *
-     * @param input
-     */
-    @Deprecated
-    @RequiresPermissions("objects:delete")
-    public static void remove(EnvObjectLogic input) {
-        objectList.remove(input.getPojo().getUUID());
-        input.setChanged(true); //force repainting on frontends clients
-        input.destroy(); //free memory
+    
+    private String getNextInOrder(String name) {
+        String newName = name;
+        int i = 0;
+        while (!this.findByName(name).isEmpty() && (i < 1000)) {
+            // i < 1000 just to avoid infinite loop in case of errors
+            i++;
+            newName = name + "-" + i;
+        }
+        return newName;
     }
 
     /**
@@ -408,7 +423,6 @@ class ThingRepositoryImpl implements ThingRepository {
             objectList.clear();
         }
     }
-    private static final Logger LOG = Logger.getLogger(ThingRepositoryImpl.class.getName());
 
     @Override
     @RequiresPermissions("objects:read")
@@ -448,7 +462,7 @@ class ThingRepositoryImpl implements ThingRepository {
                 return false;
             }
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Cannot create object", e);
+            LOG.error("Cannot create object", e);
             return false;
         }
     }
@@ -465,17 +479,16 @@ class ThingRepositoryImpl implements ThingRepository {
         try {
             EnvObjectLogic eol = objectList.remove(uuid);
             try {
-                eol.setChanged(true); //force repainting on frontends clients
+                eol.setChanged(SynchAction.DELETED); //force repainting on frontends clients
             } catch (Exception e) {
-                LOG.warning("Cannot notify object changes");
+                LOG.warn("Cannot notify object changes");
             }
             eol.destroy();
             return true;
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Cannot delete object" + uuid, e);
+            LOG.error("Cannot delete object" + uuid, e);
             return false;
         }
-
     }
 
     @Override
@@ -495,14 +508,6 @@ class ThingRepositoryImpl implements ThingRepository {
     @RequiresPermissions("objects:create")
     public EnvObjectLogic copy(EnvObjectLogic thing) {
         return add(thing, true);
-    }
-
-    public static List<String> getObjectsNames() {
-        List<String> list = new ArrayList<String>();
-        for (EnvObjectLogic obj : objectList.values()) {
-            list.add(obj.getPojo().getName());
-        }
-        return list;
     }
 
     @Override
@@ -538,7 +543,7 @@ class ThingRepositoryImpl implements ThingRepository {
         }
 
         // Configure the deserialization engine
-        LOG.log(Level.CONFIG, "Loading Thing from file {0}", file.getAbsolutePath());
+        LOG.debug("Loading Thing from file " + file.getAbsolutePath());
         XStream xstream = FreedomXStream.getXstream();
 
         // Validate the object against a predefined DTD
@@ -565,7 +570,8 @@ class ThingRepositoryImpl implements ThingRepository {
             // Deserialize the object from the upgraded and validated xml
             EnvObject pojo = (EnvObject) xstream.fromXML(xml);
             EnvObjectLogic objectLogic = thingsFactory.create(pojo);
-            LOG.log(Level.CONFIG, "Created a new logic for {0} [id:{1}] of type {2}", new Object[]{objectLogic.getPojo().getName(), objectLogic.getPojo().getUUID(), objectLogic.getClass().getCanonicalName()});
+            LOG.info("Loaded Thing {} [id:{}] of type {}",
+                    new Object[]{objectLogic.getPojo().getName(), objectLogic.getPojo().getUUID(), objectLogic.getClass().getCanonicalName()});
             return objectLogic;
         } catch (IOException ex) {
             throw new RepositoryException("Cannot read Thing file " + file.getAbsolutePath(), ex);
@@ -578,8 +584,6 @@ class ThingRepositoryImpl implements ThingRepository {
     public List<EnvObjectLogic> loadAll(File folder) throws RepositoryException {
         objectList.clear();
         List<EnvObjectLogic> results = new ArrayList<EnvObjectLogic>();
-
-        File[] files = folder.listFiles();
 
         // This filter only returns object files
         FileFilter objectFileFilter
@@ -594,7 +598,7 @@ class ThingRepositoryImpl implements ThingRepository {
                     }
                 };
 
-        files = folder.listFiles(objectFileFilter);
+        File[] files = folder.listFiles(objectFileFilter);
 
         if (files != null) {
             for (File file : files) {
@@ -608,5 +612,10 @@ class ThingRepositoryImpl implements ThingRepository {
     @Override
     public void saveAll(File folder) throws RepositoryException {
         saveObjects(folder);
+    }
+
+    @Override
+    public List<EnvObjectLogic> findByProtocol(String protocolName) {
+        return getObjectByProtocol(protocolName);
     }
 }

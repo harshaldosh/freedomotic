@@ -20,8 +20,11 @@
 package com.freedomotic.security;
 
 import com.freedomotic.api.Plugin;
-import com.freedomotic.app.AppConfig;
-import com.freedomotic.util.Info;
+import com.freedomotic.bus.BusService;
+import com.freedomotic.events.AccountEvent;
+import com.freedomotic.events.AccountEvent.AccountActions;
+import com.freedomotic.settings.AppConfig;
+import com.freedomotic.settings.Info;
 import com.google.inject.Inject;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,7 +54,9 @@ class AuthImpl2 implements Auth {
     private static final PluginRealm pluginRealm = new PluginRealm();
     private static final ArrayList<Realm> realmCollection = new ArrayList<Realm>();
     @Inject
-    AppConfig config;
+    private AppConfig config;
+    @Inject
+    private BusService bus;
 
     /**
      *
@@ -92,9 +97,9 @@ class AuthImpl2 implements Auth {
      * @return
      */
     @Override
-    public boolean login(String subject, char[] password) {
+    public boolean login(String subject, char[] password, boolean rememberMe) {
         String pwdString = String.copyValueOf(password);
-        return login(subject, pwdString);
+        return login(subject, pwdString, rememberMe);
     }
 
     /**
@@ -104,18 +109,26 @@ class AuthImpl2 implements Auth {
      * @return
      */
     @Override
-    public boolean login(String subject, String password) {
+    public boolean login(String subject, String password, boolean rememberMe) {
         UsernamePasswordToken token = new UsernamePasswordToken(subject, password);
-        token.setRememberMe(true);
+        token.setRememberMe(rememberMe);
         Subject currentUser = SecurityUtils.getSubject();
         try {
             currentUser.login(token);
             currentUser.getSession().setTimeout(-1);
-            return true;
+            LOG.log(Level.INFO, "Account ''{0}'' is granted for login", subject);          
         } catch (Exception e) {
             LOG.warning(e.getLocalizedMessage());
             return false;
         }
+        try {
+            // Notify login with a proper event
+            AccountEvent loginEvent = new AccountEvent(this, subject, AccountActions.LOGIN);
+            bus.send(loginEvent);
+        } catch (Exception e){
+            LOG.log(Level.WARNING, "Unable to send login notification message. Error: ", e);
+        }
+        return true;
     }
 
     /**
@@ -182,7 +195,11 @@ class AuthImpl2 implements Auth {
             //LOG.info("Executing privileged for plugin: " + classname);
             PrincipalCollection plugPrincipals = new SimplePrincipalCollection(classname, pluginRealm.getName());
             Subject plugSubject = new Subject.Builder().principals(plugPrincipals).authenticated(true).buildSubject();
-            plugSubject.getSession().setTimeout(-1);
+            try {
+                plugSubject.getSession().setTimeout(-1);
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "ERROR retrieving session for user {0}", classname);
+            }
             plugSubject.execute(action);
         } else {
             action.run();
@@ -279,7 +296,8 @@ class AuthImpl2 implements Auth {
 
     @Override
     public User getCurrentUser() {
-        return (User) baseRealm.getUser(getSubject().getPrincipal().toString());
+        String principalName = getSubject().getPrincipal().toString();
+        return (User) baseRealm.getUser(principalName);
     }
 
     @Override

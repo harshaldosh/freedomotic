@@ -10,7 +10,7 @@ nbactions.xml
 nb-configuration.xml
 findbugs.settings
 pmd.setting
-PACKAGE
+.sonar/
 
 # Java specific #
 #################
@@ -73,6 +73,7 @@ log/
 # Maven #
 #########
 target/
+*.versionsBackup
 
 #IntelliJ#
 *.iml

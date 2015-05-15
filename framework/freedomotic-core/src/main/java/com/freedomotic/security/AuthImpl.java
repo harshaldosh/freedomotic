@@ -24,8 +24,8 @@
 package com.freedomotic.security;
 
 import com.freedomotic.api.Plugin;
-import com.freedomotic.app.AppConfig;
-import com.freedomotic.util.Info;
+import com.freedomotic.settings.AppConfig;
+import com.freedomotic.settings.Info;
 import com.google.inject.Inject;
 import java.io.File;
 import java.util.ArrayList;
@@ -102,9 +102,9 @@ class AuthImpl implements Auth{
      * @return
      */
     @Override
-    public boolean login(String subject, char[] password) {
+    public boolean login(String subject, char[] password, boolean rememberMe) {
         String pwdString = String.copyValueOf(password);
-        return login(subject, pwdString);
+        return login(subject, pwdString, rememberMe);
     }
 
     /**
@@ -114,9 +114,9 @@ class AuthImpl implements Auth{
      * @return
      */
     @Override
-    public boolean login(String subject, String password) {
+    public boolean login(String subject, String password, boolean rememberMe) {
         UsernamePasswordToken token = new UsernamePasswordToken(subject, password);
-        token.setRememberMe(true);
+        token.setRememberMe(rememberMe);
         Subject currentUser = SecurityUtils.getSubject();
         try {
             currentUser.login(token);
